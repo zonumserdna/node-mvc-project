@@ -5,7 +5,6 @@ const bodyParser = require('body-parser');
 
 const app = express();
 const errorController = require('./controllers/error');
-const db = require('./util/database');
 
 // EJS
 app.set('view engine', 'ejs'); // compile dynamic templates with ejs
