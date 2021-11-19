@@ -1,16 +1,19 @@
 const Product = require('../models/product');
+// const User = require('../models/user');
 
 exports.getAddProduct = (req, res, next) => {
+    const { session: { isLoggedIn: isAuthenticated }} = req;
     res.render('admin/edit-product', {
         pageTitle: 'Add Product',
         path: '/admin/add-product',
-        editing: false
+        editing: false,
+        isAuthenticated
     })
 };
 
 exports.postAddProduct = (req, res, next) => {
     const {
-        user: { _id: userId},
+        user: { _id: userId },
         body: {
             title,
             price,
@@ -25,7 +28,7 @@ exports.postAddProduct = (req, res, next) => {
 }
 
 exports.getEditProduct = (req, res, next) => {
-    const { query: { editing } } = req;
+    const { query: { editing }, session: { isLoggedIn: isAuthenticated }} = req;
     if (editing !== 'true') {
         return res.redirect('/');
     }
@@ -39,7 +42,8 @@ exports.getEditProduct = (req, res, next) => {
                 pageTitle: 'Edit Product',
                 path: '/admin/edit-product',
                 editing,
-                product
+                product,
+                isAuthenticated
             });
         })
         .catch(err => console.log(err));
@@ -67,6 +71,7 @@ exports.postEditProduct = (req, res, next) => {
 };
 
 exports.getProducts = (req, res, next) => {
+    const { session: { isLoggedIn: isAuthenticated }} = req;
     Product.find()
     // .select('title price description -_id') // selects some attributes of product, _id is excluded
     // .populate('userId', 'name') //populate data related to user (name in this case)
@@ -76,6 +81,7 @@ exports.getProducts = (req, res, next) => {
             prods: products,
             pageTitle: 'Admin Products',
             path: '/admin/products',
+            isAuthenticated
         });
     })
     .catch(err => console.log(err));

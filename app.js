@@ -2,8 +2,18 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
+const session = require('express-session');
+const mongoDBSession = require('connect-mongodb-session');
+const MongoDBStore = mongoDBSession(session);
+// const MONGODB_URI = 'mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.net/shop?retryWrites=true&w=majority';
+const MONGODB_URI = 'mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.net/shop';
 
 const app = express();
+const store = new MongoDBStore({
+    uri: MONGODB_URI,
+    collection: 'sessions',
+
+});
 const errorController = require('./controllers/error');
 const User = require('./models/user');
 
@@ -16,27 +26,36 @@ app.set('views', 'views'); // where templates will be find
 
 const adminRoutes = require('./routes/admin');
 const shopRoutes = require('./routes/shop');
+const authRoutes = require('./routes/auth');
 
 // use a middleware function
 
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(session({
+    secret: 'my secret', // should be a long string option in prod
+    resave: false, // session will not be saved on every request that is done, so on every response that is sent, but only if something changed in the session (will improve performance)
+    saveUninitialized: false, // basically ensure that no session gets saved for a request where it doesn't need to be saved because nothing was changed about it
+    store: store
+}));
 
 app.use((req, res, next) => {
-    User.findById("6195081099ee6a3b3c25da5c")
+    const { session: { user }} = req;
+    User.findById(user?._id)
         .then((user) => {
             req.user = user;
             next();
         })
-        .catch();
+        .catch(err => console.log(err));
 });
 
 app.use('/admin', adminRoutes);
 app.use(shopRoutes);
+app.use(authRoutes);
 
 app.use(errorController.get404);
 
-mongoose.connect('mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.net/shop?retryWrites=true&w=majority')
+mongoose.connect(MONGODB_URI)
     .then(result => {
         return User
             .findOne()
@@ -53,5 +72,5 @@ mongoose.connect('mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.ne
                 }
             });
     })
-    .then(() => app.listen(3000))
+    .then(() => app.listen(3001))
     .catch(err => console.log(err));
