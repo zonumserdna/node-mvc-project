@@ -5,6 +5,10 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const mongoDBSession = require('connect-mongodb-session');
 const MongoDBStore = mongoDBSession(session);
+const csrf = require('csurf');
+const flash = require('connect-flash');
+
+
 // const MONGODB_URI = 'mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.net/shop?retryWrites=true&w=majority';
 const MONGODB_URI = 'mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.net/shop';
 
@@ -14,14 +18,14 @@ const store = new MongoDBStore({
     collection: 'sessions',
 
 });
+
+const csrfProtection = csrf();
+
 const errorController = require('./controllers/error');
 const User = require('./models/user');
 
 // EJS
 app.set('view engine', 'ejs'); // compile dynamic templates with ejs
-
-
-
 app.set('views', 'views'); // where templates will be find
 
 const adminRoutes = require('./routes/admin');
@@ -38,6 +42,8 @@ app.use(session({
     saveUninitialized: false, // basically ensure that no session gets saved for a request where it doesn't need to be saved because nothing was changed about it
     store: store
 }));
+app.use(csrfProtection);
+app.use(flash());
 
 app.use((req, res, next) => {
     const { session: { user }} = req;
@@ -49,6 +55,12 @@ app.use((req, res, next) => {
         .catch(err => console.log(err));
 });
 
+app.use((req, res, next) => {
+    res.locals.isAuthenticated = req.session.isLoggedIn;
+    res.locals.csrfToken = req.csrfToken();
+    next();
+});
+
 app.use('/admin', adminRoutes);
 app.use(shopRoutes);
 app.use(authRoutes);
@@ -56,21 +68,5 @@ app.use(authRoutes);
 app.use(errorController.get404);
 
 mongoose.connect(MONGODB_URI)
-    .then(result => {
-        return User
-            .findOne()
-            .then(user => {
-                if (!user) {
-                    const user = new User({
-                        name: 'Andres',
-                        email: 'andres@test.com',
-                        cart: {
-                            items: []
-                        }
-                    });
-                    return user.save();
-                }
-            });
-    })
     .then(() => app.listen(3001))
     .catch(err => console.log(err));
