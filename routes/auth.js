@@ -1,16 +1,99 @@
 const express = require('express');
+const { check, body } = require('express-validator/check');
 
 const authController = require('../controllers/auth');
 
+const User = require('../models/user');
+
 const router = express.Router();
+
+const bcrypt = require('bcryptjs');
 
 router.get('/login', authController.getLogin);
 
 router.get('/signup', authController.getSignup);
 
-router.post('/login', authController.postLogin);
+router.post(
+    '/login',
+    body(
+        'email',
+        'E-mail is invalid'
+    )
+    .isEmail()
+    // validation - sanitizing
+    .normalizeEmail(),
+    body(
+        'password',
+        'Password has to be valid.'
+    )
+    .isLength({min: 5})
+    .isAlphanumeric()
+    // validation - sanitizing
+    .trim(),
+    check('email')
+    .custom((value, { req }) => {
+        const { body: { password }} = req;
+        return User
+        .findOne({ email: value })
+        .then(user => {
+            if (!user) {
+                return Promise.reject('Invalid email or password');
+            }
 
-router.post('/signup', authController.postSignup);
+            return user;
+        })
+        .then(user => {
+            return bcrypt
+                .compare(password, user.password)
+                .then(doMatch => {
+                    if (!doMatch) {
+                        return Promise.reject('Invalid email or password');
+                    }
+                })
+        });
+    }),
+    authController.postLogin);
+
+router.post(
+    '/signup',
+    check('email')
+    .isEmail()
+    .withMessage('Please enter a valid email')
+    .custom((value, { req }) => {
+        // if (value === 'test@test.com') {
+        //     throw new Error('This email address is forbidden.')
+        // }
+        // return true;
+
+        return User
+        .findOne({ email: value })
+        .then(userDoc => {
+            console.log('>>>>>>', userDoc);
+            if (userDoc) {
+                return Promise.reject('E-Mail already exists, please pick a different one.');
+            }
+        });
+    }) // validation - sanitizing
+    .normalizeEmail(), // validation
+    body(
+        'password',
+        'Please enter a password with numbers and text and at least 5 characters.'
+    )
+    .isLength({min: 5})
+    .isAlphanumeric()// validation
+    .trim(),// validation - sanitizing
+    body(
+        'confirmPassword'
+    )
+    .custom((value, { req }) => {
+        if (value !== req.body.password) {
+            throw new Error('Passwords have to match');
+        }
+
+        return true;
+    })// validation
+    .trim(), // validation - sanitizing
+    authController.postSignup);
 
 router.post('/logout', authController.postLogout);
 
