@@ -117,7 +117,11 @@ exports.postSignup = (req, res, next) => {
                 html: '<h1>You successfully signed up!</h1>'
             });
         })
-        .catch(err => console.log(err));
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
 };
 
 exports.getReset = (req, res, next) => {
@@ -166,7 +170,11 @@ exports.postReset = (req, res, next) => {
                     `
                 });
             })
-            .catch(err => console.log(err));
+            .catch(err => {
+                const error = new Error(err);
+                error.httpStatusCode = 500;
+                next(error); // it will skip all other MWs and will execute the special error handling MW
+            });
     });
 };
 
@@ -189,7 +197,11 @@ exports.getNewPassword =(req, res, next) => {
                 passwordToken: token
             });
         })
-        .catch(err => console.log(err));
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
 };
 
 exports.postNewPassword =(req, res, next) => {
@@ -219,5 +231,9 @@ exports.postNewPassword =(req, res, next) => {
         .then(result => {
             res.redirect('/login');
         })
-        .catch(err => console.log(err));
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
 };

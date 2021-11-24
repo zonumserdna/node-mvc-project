@@ -27,7 +27,7 @@ exports.postAddProduct = (req, res, next) => {
     if (!errors.isEmpty()) {
         return res.status(422).render('admin/edit-product', {
             pageTitle: 'Add Product',
-            path: '/admin/edit-product',
+            path: '/admin/add-product',
             editing: false,
             hasError: true,
             product: {
@@ -45,7 +45,11 @@ exports.postAddProduct = (req, res, next) => {
     product
         .save()
         .then(result => res.redirect('/admin/products'))
-        .catch(err => console.log(err));
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
 }
 
 exports.getEditProduct = (req, res, next) => {
@@ -69,7 +73,11 @@ exports.getEditProduct = (req, res, next) => {
                 validationErrors: []
             });
         })
-        .catch(err => console.log(err));
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
 };
 
 exports.postEditProduct = (req, res, next) => {
@@ -114,7 +122,11 @@ exports.postEditProduct = (req, res, next) => {
                 .save()
                 .then(() => res.redirect('/admin/products'));
         })
-        .catch(err => console.log(err));
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
 };
 
 exports.getProducts = (req, res, next) => {
@@ -129,12 +141,20 @@ exports.getProducts = (req, res, next) => {
             path: '/admin/products'
         });
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+        const error = new Error(err);
+        error.httpStatusCode = 500;
+        next(error); // it will skip all other MWs and will execute the special error handling MW
+    });
 }
 
 exports.postDeleteProduct = (req, res, next) => {
     const { user, body: { productId }} = req;
     Product.deleteOne({ _id: productId, userId: user._id })// authorization
         .then(() => res.redirect('/admin/products'))
-        .catch(err => console.log(err));
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
 };

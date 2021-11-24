@@ -46,26 +46,53 @@ app.use(csrfProtection);
 app.use(flash());
 
 app.use((req, res, next) => {
-    const { session: { user }} = req;
-    User.findById(user?._id)
-        .then((user) => {
-            req.user = user;
-            next();
-        })
-        .catch(err => console.log(err));
-});
-
-app.use((req, res, next) => {
     res.locals.isAuthenticated = req.session.isLoggedIn;
     res.locals.csrfToken = req.csrfToken();
     next();
+});
+
+app.use((req, res, next) => {
+    // throw new Error('Sync dummy'); // this will execute the centralize error hadling MW
+    const { session: { user: sessionUser }} = req;
+    if (!sessionUser) {
+        return next();
+    }
+    User.findById(sessionUser?._id)
+        .then((user) => {
+            if (!user) {
+                return next();
+            }
+            req.user = user;
+            next();
+        })
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
 });
 
 app.use('/admin', adminRoutes);
 app.use(shopRoutes);
 app.use(authRoutes);
 
+
+app.get('/500', errorController.get500);
 app.use(errorController.get404);
+
+// special centralized ERROR HANDLING MW (4 params MW)
+// if more than one error handling MW is used, they'll execute from top to bottom, as normal MW
+// this will not execute for 404 errors!!, 404 error is simply just a valid url which we catch with our catch all handler there where we then just happen to render the 404 page. This is not a technical error object that gets created at any point here
+app.use((error, req, res, next) => {
+    // res.status(error.httpStatusCode).render(...)
+    // res.redirect('/500');
+
+    res.status(error.httpStatusCode).render('500', {
+        pageTitle: 'Error!',
+        path: '/500',
+        isAuthenticated: req.session.isLoggedIn
+    });
+});
 
 mongoose.connect(MONGODB_URI)
     .then(() => app.listen(3001))
