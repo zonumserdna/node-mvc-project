@@ -10,7 +10,8 @@
         <% if (errorMessage) { %>
             <div class="user-message user-message--error"><%= errorMessage %></div>
         <% } %>
-        <form class="product-form" action="/admin/<% if (editing === 'true') { %>edit-product<% } else { %>add-product<% } %>" method="POST">
+        <!-- enctype="multipart/form-data" // tells the server that this submition (request) will not contain plain text but will contain mixed data, plain and binary -->
+        <form class="product-form" action="/admin/<% if (editing === 'true') { %>edit-product<% } else { %>add-product<% } %>" method="POST" enctype="multipart/form-data">
             <div class="form-control">
                 <label for="title">Title</label>
                 <input
@@ -20,7 +21,7 @@
                     id="title"
                     value="<% if (editing === 'true' || hasError) { %><%= product.title %><% } %>">
             </div>
-            <div class="form-control">
+            <!-- <div class="form-control">
                 <label for="imageUrl">Image URL</label>
                 <input
                     class="<%= validationErrors.find(e => e.param === 'imageUrl') ? 'invalid' : ''%>"
@@ -28,6 +29,13 @@
                     name="imageUrl"
                     id="imageUrl"
                     value="<% if (editing === 'true' || hasError) { %><%= product.imageUrl %><% } %>">
+            </div> -->
+            <div class="form-control">
+                <label for="image">Image</label>
+                <input
+                    type="file"
+                    name="image"
+                    id="image">
             </div>
             <div class="form-control">
                 <label for="price">Price</label>

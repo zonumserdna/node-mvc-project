@@ -1,6 +1,9 @@
+const fs = require('fs');
+const path = require('path');
 const Product = require('../models/product');
 const Order = require('../models/order');
 const User = require('../models/user');
+const PDFDocument = require('pdfkit');
 
 exports.getProducts = (req, res, next) => {
     Product.find()
@@ -110,8 +113,8 @@ exports.postOrder = (req, res, next) => {
             }));
             const order = new Order({
                 user: {
-                    email: user.email,
-                    userId: user
+                    email: req.user.email,
+                    userId: req.user
                 },
                 products
             });
@@ -146,3 +149,59 @@ exports.getOrders = (req, res, next) => {
             next(error); // it will skip all other MWs and will execute the special error handling MW
         });
 }
+
+exports.getInvoice = (req, res, next) => {
+    const { params: { orderId }} = req;
+    Order
+        .findById(orderId)
+        .then((order => {
+            if (!order) {
+                return next(new Error('No order found.'));
+            }
+            if (order.user.userId.toString() !== req.user._id.toString()) {
+                return next(new Error('Unauthorized'));
+            }
+
+            const invoiceName = `invoice-${orderId}.pdf`;
+            const invoicePath = path.join('data', 'invoices', invoiceName);
+            // ===> creating the pdf
+            const pdfDoc = new PDFDocument();
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${invoiceName}"`);
+            pdfDoc.pipe(fs.createWriteStream(invoicePath)); // streaming to write the pdf, stored in the server not only in the client
+            pdfDoc.pipe(res); // return the streaming to the client, so pipe the output into response
+            pdfDoc.fontSize(26).text('Invoice', {underline: true});
+            pdfDoc.fontSize(14).text('---------------------------------------------------------------');
+            let totalPrice = 0;
+            order.products.forEach(p => {
+                totalPrice += p.quantity * p.product.price;
+                pdfDoc.fontSize(14).text(`${p.product.title} - ${p.quantity} x $${p.product.price}`);
+                pdfDoc.text('---');
+                pdfDoc.fontSize(20).text(`Total price: $${totalPrice}`);
+
+            });
+            pdfDoc.end(); // the writable streams for creating the file and for sending the response will be closed
+
+
+
+            // ===> reading entire file (existing file in server)
+            // fs.readFile(invoicePath, (err, data) => {
+            //     if (err) {
+            //         return next(err);
+            //     }
+
+            //     res.setHeader('Content-Type', 'application/pdf');
+            //     // res.setHeader('Content-Disposition', `inline; filename="${invoiceName}"`);// how the content should be served to the client, inline tells the browser to open the file
+            //     res.setHeader('Content-Disposition', `attachment; filename="${invoiceName}"`);// attachments tells the browser to download the file
+            //     res.send(data);
+            // });
+
+            // ===> streaming the responseData (big files), reads the file in different chunks (existing file in server)
+            // const file = fs.createReadStream(invoicePath);
+            // res.setHeader('Content-Type', 'application/pdf');
+            // res.setHeader('Content-Disposition', `inline; filename="${invoiceName}"`);
+
+            // file.pipe(res); // forward the readed data to the response, the response is a writable stream
+        }))
+        .catch(err => next(err));
+};

@@ -7,6 +7,15 @@ const mongoDBSession = require('connect-mongodb-session');
 const MongoDBStore = mongoDBSession(session);
 const csrf = require('csurf');
 const flash = require('connect-flash');
+/**
+Parses incomming requests for files or requests with mixed data (plain+files)
+> enctype="application/x-www-form-urlencoded": form with plain text (default)
+> enctype="multipart/form-data": form with mixed data
+
+multer will be looking for incomming requests with multipart/form-data type of data and will be able
+to parse both text and binary data
+ */
+const multer = require('multer');
 
 
 // const MONGODB_URI = 'mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.net/shop?retryWrites=true&w=majority';
@@ -21,6 +30,25 @@ const store = new MongoDBStore({
 
 const csrfProtection = csrf();
 
+const fileStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'images');
+    },
+    filename: (req, file, cb) => {
+        cb(null, new Date().getTime().toString() + '-' + file.originalname);
+    }
+});
+
+const fileFilter = (req, file, cb) => { // white list of which kind of files are accepted (uploading)
+    const { mimetype } = file;
+    if (mimetype === 'image/png' || mimetype === 'image/jpg' || mimetype === 'image/jpeg') {
+        cb(null, true);
+    } else {
+        cb(null, false);
+    }
+
+};
+
 const errorController = require('./controllers/error');
 const User = require('./models/user');
 
@@ -34,8 +62,11 @@ const authRoutes = require('./routes/auth');
 
 // use a middleware function
 
-app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.urlencoded({extended: false})); // forms with just plain text
+app.use(multer({ storage: fileStorage, fileFilter }).single('image'));
+// app.use(multer({ dest: 'images' }).single('image'));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/images', express.static(path.join(__dirname, 'images')));
 app.use(session({
     secret: 'my secret', // should be a long string option in prod
     resave: false, // session will not be saved on every request that is done, so on every response that is sent, but only if something changed in the session (will improve performance)
@@ -87,7 +118,8 @@ app.use((error, req, res, next) => {
     // res.status(error.httpStatusCode).render(...)
     // res.redirect('/500');
 
-    res.status(error.httpStatusCode).render('500', {
+    console.error(error);
+    res.status(error?.httpStatusCode || 500).render('500', {
         pageTitle: 'Error!',
         path: '/500',
         isAuthenticated: req.session.isLoggedIn
