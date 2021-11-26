@@ -170,8 +170,8 @@ exports.getProducts = (req, res, next) => {
     });
 }
 
-exports.postDeleteProduct = (req, res, next) => {
-    const { user, body: { productId }} = req;
+exports.deleteProduct = (req, res, next) => {
+    const { user, params: { productId }} = req;
     Product
         .findById(productId)
         .then(product => {
@@ -181,10 +181,10 @@ exports.postDeleteProduct = (req, res, next) => {
             fileHelper.deleteFile(product.imageUrl);
             return Product.deleteOne({ _id: productId, userId: user._id });// authorization
         })
-        .then(() => res.redirect('/admin/products'))
+        .then(() => {
+            res.status(200).json({message: 'Success!'});
+        })
         .catch(err => {
-            const error = new Error(err);
-            error.httpStatusCode = 500;
-            next(error); // it will skip all other MWs and will execute the special error handling MW
+            res.status(500).json({message: 'Deleting product failed!'});
         });
 };
