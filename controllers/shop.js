@@ -2,7 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const Product = require('../models/product');
 const Order = require('../models/order');
-const User = require('../models/user');
+
+// private key
+const stripe = require('stripe')('sk_test_51K03lcLBBFIqTyTPua8kCSBu6yI1okup4s5eNMB9sehpXUUrzYN9mSw6eqKus6bpn1kRt810rvg2ChDl1ciagAlT001rrlYHET');
+
 const PDFDocument = require('pdfkit');
 
 const ITEMS_PER_PAGE = 2;
@@ -131,6 +134,78 @@ exports.postCartDeleteProduct = (req, res, next) => {
         .removeFromCart(productId)
         .then(result => {
             res.redirect('/cart')
+        })
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
+
+}
+
+exports.getCheckout = (req, res, next) => {
+    let products;
+    let total = 0;
+    const { user } = req;
+    user
+        .populate('cart.items.productId')
+        .then(u => {
+            products = u.cart.items;
+            total = 0;
+            products.forEach((p) => {
+                total = p.quantity * p.productId.price;
+            });
+
+            return stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: products.map(({quantity, productId}) => ({
+                    name: productId.title,
+                    description: productId.description,
+                    amount: productId.price * 100, // specified in cents
+                    currency: 'usd',
+                    quantity
+                })),
+                success_url: `${req.protocol}://${req.get('host')}/checkout/success`,
+                cancel_url: `${req.protocol}://${req.get('host')}/checkout/cancel`,
+            });
+        })
+        .then(session => {
+            res.render('shop/checkout', {
+                path: '/checkout',
+                pageTitle: 'Checkout',
+                products,
+                totalSum: total,
+                sessionId: session.id
+            });
+        })
+        .catch(err => {
+            const error = new Error(err);
+            error.httpStatusCode = 500;
+            next(error); // it will skip all other MWs and will execute the special error handling MW
+        });
+}
+
+exports.getCheckoutSuccess = (req, res, next) => {
+    const { user } = req;
+    user
+        .populate('cart.items.productId')
+        .then(({ cart }) => {
+            const products = cart.items.map(i => ({
+                quantity: i.quantity,
+                product: { ...i.productId._doc }
+            }));
+            const order = new Order({
+                user: {
+                    email: req.user.email,
+                    userId: req.user
+                },
+                products
+            });
+            return order.save();
+        })
+        .then(result => user.clearCart())
+        .then(() => {
+            res.redirect('/orders');
         })
         .catch(err => {
             const error = new Error(err);
