@@ -7,6 +7,7 @@ const mongoDBSession = require('connect-mongodb-session');
 const MongoDBStore = mongoDBSession(session);
 const csrf = require('csurf');
 const flash = require('connect-flash');
+const fs = require('fs');
 /**
 Parses incomming requests for files or requests with mixed data (plain+files)
 > enctype="application/x-www-form-urlencoded": form with plain text (default)
@@ -17,9 +18,46 @@ to parse both text and binary data
  */
 const multer = require('multer');
 
+/*
+Helmet helps you secure your Express apps by setting various HTTP headers
+*/
+const helmet = require('helmet');
+
+/*
+compression helps to serve optimized assets
+*/
+const compression = require('compression');
+
+/*
+Logs, commonly logging is done by hosting providers, but it is a good package to do it mannually
+more on logs https://blog.risingstack.com/node-js-logging-tutorial/
+*/
+const morgan = require('morgan');
+
+/*
+Set env variables for production has a problem with windows env,
+Review this link
+https://www.udemy.com/course/nodejs-the-complete-guide/learn/lecture/12198022#questions/9925546
+
+the solution is to write the start in package.json like this
+"start": "SET NODE_ENV=production&&SET MONGO_USER=expressjsuser&&SET MONGO_PASSWORD=K2ey4I2$&&SET MONGO_DEFAULT_DATABASE=shop&&SET STRIPE_KEY=sk_test_51K03lcLBBFIqTyTPua8kCSBu6yI1okup4s5eNMB9sehpXUUrzYN9mSw6eqKus6bpn1kRt810rvg2ChDl1ciagAlT001rrlYHET&& node app.js",
+instead of this
+this works in linux
+"start": "NODE_ENV=production MONGO_USER=expressjsuser MONGO_PASSWORD=K2ey4I2$ MONGO_DEFAULT_DATABASE=shop STRIPE_KEY=sk_test_51K03lcLBBFIqTyTPua8kCSBu6yI1okup4s5eNMB9sehpXUUrzYN9mSw6eqKus6bpn1kRt810rvg2ChDl1ciagAlT001rrlYHET node app.js",
+
+To do the windows solution compatible with linux, it is needed to add the cross-env as dev dependency
+*/
+
+/*
+To create ssl certificate, we need to execute the command below, in linux and mac this works by default, but in windows it is needed to install a tool ./notes/ssl-installer-tool-windows.png
+
+openssl -nodes -new -x509 -keyout server.key -out server.cert
+
+SSL WAS NOT CREATED IN THIS APP, to do it show the "456 Setting Up a SSL Server" class https://www.udemy.com/course/nodejs-the-complete-guide/learn/lecture/12198032#questions
+*/
 
 // const MONGODB_URI = 'mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.net/shop?retryWrites=true&w=majority';
-const MONGODB_URI = 'mongodb+srv://expressjsuser:K2ey4I2$@cluster0.e6tzx.mongodb.net/shop';
+const MONGODB_URI = `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASSWORD}@cluster0.e6tzx.mongodb.net/${process.env.MONGO_DEFAULT_DATABASE}`;
 
 const app = express();
 const store = new MongoDBStore({
@@ -59,6 +97,13 @@ app.set('views', 'views'); // where templates will be find
 const adminRoutes = require('./routes/admin');
 const shopRoutes = require('./routes/shop');
 const authRoutes = require('./routes/auth');
+
+// const accessLogStream = fs.createWriteStream(path.join(__dirname, 'access.log'),
+//     { flags: 'a' }); // new data will be appended to the file instead of overwwrite
+
+app.use(helmet());
+app.use(compression());
+// app.use(morgan('combined', { stream: accessLogStream }));
 
 // use a middleware function
 
@@ -127,5 +172,5 @@ app.use((error, req, res, next) => {
 });
 
 mongoose.connect(MONGODB_URI)
-    .then(() => app.listen(3001))
+    .then(() => app.listen(process.env.PORT || 3000))
     .catch(err => console.log(err));
